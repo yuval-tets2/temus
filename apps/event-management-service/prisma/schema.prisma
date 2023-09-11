@@ -1,0 +1,153 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DB_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Block {
+  blocksTransactions   BlockTransaction[]
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
+  difficulty           Decimal?
+  graffiti             String             @db.VarChar()
+  hash                 String             @db.VarChar()
+  id                   Int                @id @default(autoincrement())
+  main                 Boolean
+  networkVersion       Int                @map("network_version")
+  previousBlockHash    String             @map("previous_block_hash") @db.VarChar()
+  sequence             Int
+  size                 Int?
+  timeSinceLastBlockMs Int?               @map("time_since_last_block_ms")
+  timestamp            DateTime           @db.Timestamp(6)
+  transactionsCount    Int                @map("transactions_count")
+  updatedAt            DateTime           @default(now()) @map("updated_at") @db.Timestamp(6)
+  work                 Decimal?
+
+  @@unique([hash, networkVersion], name: "uq_blocks_on_hash_and_network_version", map: "uq_blocks_on_hash_and_network_version")
+  @@index([hash], map: "index_blocks_on_hash")
+  @@index([hash, networkVersion], map: "index_blocks_on_hash_and_network_version")
+  @@index([sequence, networkVersion], map: "index_blocks_on_sequence_and_network_version")
+  @@map("blocks")
+}
+
+model Transaction {
+  assetDescriptions  AssetDescription[]
+  blocksTransactions BlockTransaction[]
+  createdAssets      Asset[]
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
+  expiration         Int?
+  fee                Float
+  hash               String             @db.VarChar()
+  id                 Int                @id @default(autoincrement())
+  networkVersion     Int                @map("network_version")
+  notes              Json
+  size               Int
+  spends             Json
+  updatedAt          DateTime           @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  @@unique([hash, networkVersion], name: "uq_transactions_on_hash_and_network_version", map: "uq_transactions_on_hash_and_network_version")
+  @@index([hash], map: "index_transactions_on_hash")
+  @@index([hash, networkVersion], map: "index_transactions_on_hash_and_network_version")
+  @@map("transactions")
+}
+
+model BlockTransaction {
+  block          Block       @relation(fields: [block_id], references: [id])
+  block_id       Int
+  id             String      @id @default(cuid())
+  index          Int?
+  transaction    Transaction @relation(fields: [transaction_id], references: [id])
+  transaction_id Int
+
+  @@unique([block_id, transaction_id])
+  @@index([block_id], map: "index_blocks_transactions_on_block_id")
+  @@index([transaction_id], map: "index_blocks_transactions_on_transaction_id")
+  @@map("blocks_transactions")
+}
+
+model FaucetTransaction {
+  completedAt DateTime? @map("completed_at") @db.Timestamp(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  email       String?   @db.VarChar()
+  hash        String?   @db.VarChar()
+  id          Int       @id @default(autoincrement())
+  publicKey   String    @map("public_key") @db.VarChar()
+  startedAt   DateTime? @map("started_at") @db.Timestamp(6)
+  tries       Int       @default(0)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  @@index([email], map: "index_faucet_transactions_on_email")
+  @@index([publicKey], map: "index_faucet_transactions_on_public_key")
+  @@index([hash], map: "index_faucet_transactions_on_hash")
+  @@index([completedAt], map: "index_faucet_transactions_on_completed_at")
+  @@index([startedAt, completedAt], map: "index_faucet_transactions_on_completed_at_and_started_at")
+  @@map("faucet_transactions")
+}
+
+model BlockDaily {
+  averageBlockSize         Decimal  @default(0) @map("average_block_size")
+  averageBlockTimeMs       Int      @map("average_block_time_ms")
+  averageDifficulty        Decimal  @map("average_difficulty")
+  blocksCount              Int      @map("blocks_count")
+  blocksWithGraffitiCount  Int      @map("blocks_with_graffiti_count")
+  chainSequence            Int      @map("chain_sequence")
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  cumulativeUniqueGraffiti Int      @map("cumulative_unique_graffiti")
+  date                     DateTime @unique @db.Timestamp(6)
+  id                       Int      @id @default(autoincrement())
+  transactionsCount        Int      @map("transactions_count")
+  uniqueGraffitiCount      Int      @map("unique_graffiti_count")
+  updatedAt                DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  @@index([date], map: "index_blocks_daily_on_date")
+  @@map("blocks_daily")
+}
+
+model Version {
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  id        Int      @id @default(autoincrement())
+  version   String   @db.VarChar()
+
+  @@map("versions")
+}
+
+model Asset {
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
+  createdTransaction     Transaction        @relation(fields: [created_transaction_id], references: [id])
+  created_transaction_id Int
+  descriptions           AssetDescription[]
+  id                     Int                @id @default(autoincrement())
+  identifier             String             @unique
+  metadata               String
+  name                   String
+  owner                  String
+  supply                 BigInt
+  updatedAt              DateTime           @default(now()) @map("updated_at") @db.Timestamp(6)
+  verifiedAt             DateTime?          @map("verified_at") @db.Timestamp(6)
+
+  @@index([created_transaction_id], map: "index_assets_on_created_transaction_id")
+  @@map("assets")
+}
+
+model AssetDescription {
+  asset          Asset                    @relation(fields: [asset_id], references: [id])
+  asset_id       Int
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamp(6)
+  id             Int                      @id @default(autoincrement())
+  transaction    Transaction              @relation(fields: [transaction_id], references: [id])
+  transaction_id Int
+  type           EnumAssetDescriptionType
+  updatedAt      DateTime                 @default(now()) @map("updated_at") @db.Timestamp(6)
+  value          BigInt
+
+  @@index([asset_id], map: "index_asset_descriptions_on_asset_id")
+  @@index([transaction_id], map: "index_asset_descriptions_on_transaction_id")
+  @@map("asset_descriptions")
+}
+
+enum EnumAssetDescriptionType {
+  BURN
+  MINT
+}
