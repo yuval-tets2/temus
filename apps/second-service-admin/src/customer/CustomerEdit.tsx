@@ -4,9 +4,9 @@ import {
   Edit,
   SimpleForm,
   EditProps,
+  TextInput,
   ReferenceArrayInput,
   SelectArrayInput,
-  TextInput,
 } from "react-admin";
 
 import { EventTitle } from "../event/EventTitle";
@@ -15,6 +15,7 @@ export const CustomerEdit = (props: EditProps): React.ReactElement => {
   return (
     <Edit {...props}>
       <SimpleForm>
+        <TextInput label="Email" source="email" type="email" />
         <ReferenceArrayInput
           source="events"
           reference="Event"
